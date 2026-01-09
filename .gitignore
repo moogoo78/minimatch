@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+dist/
+*.egg
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Data files (large CSVs and outputs)
+*.csv
+data/loaders/*
+
+# Logs
+*.log
+
+
+# Temporary files
+tmp/
+*.tmp
+
+# Environment variables
+.env
+.env.local
+
+# Flask
+instance/
+.webassets-cache
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Specific to this project
+data/loaders/
+data/source/
+data/tasks/
+data2/venv/
+reconcile_output/
