@@ -65,29 +65,52 @@ def parse_internal(label):
     return latin, chinese, rank_id
 
 
+cjk_re = re.compile(r"[㐀-鿿豈-﫿]")
+genus_re = re.compile(r"^[A-Z][a-z]")       # start of a Latin binomial (Genus)
+epithet_re = re.compile(r"[a-z][a-z-]+")
+
+
+def clean_zh(s):
+    s = re.sub(r"\s+", " ", s).strip()
+    return s.replace(" )", ")").replace("( ", "(")
+
+
 def parse_species(label):
-    """Return (latin, chinese, authors, year, tw, cn)."""
+    """Return (latin, chinese, authors, year, tw, cn).
+
+    The Latin binomial is the anchor: it starts at the first capitalised ASCII
+    token. Everything before it is the Chinese name (which may be empty for
+    species with no Chinese name, or carry a parenthetical synonym); everything
+    after it is the author citation. This is robust to species that lack a
+    Chinese name and to a parenthetical alternate Chinese name preceding the
+    binomial (which earlier broke a naive "first token is Chinese" assumption).
+    """
     tw = "台" in label
     cn = "陸" in label
     s = label.rstrip("台陸 ").rstrip()
     toks = s.split()
-    chinese = toks[0] if toks else ""
-    rest = toks[1:]
-    name = []
-    if rest:
-        name.append(rest[0])            # Genus
-    if len(rest) > 1:
-        name.append(rest[1])            # species epithet
-    i = 2
-    # optional infraspecific epithet(s): lowercase, not an author particle
-    while i < len(rest):
-        t = rest[i]
-        if re.fullmatch(r"[a-z-]+", t) and t not in PARTICLES:
-            name.append(t)
-            i += 1
-        else:
-            break
+
+    gi = next((idx for idx, t in enumerate(toks) if genus_re.match(t)), None)
+    if gi is None:
+        # no Latin name present; whole label is the Chinese name
+        zh = clean_zh(s)
+        return "", (zh if cjk_re.search(zh) else ""), None, None, tw, cn
+
+    rest = toks[gi:]
+    name = [rest[0]]                          # Genus
+    i = 1
+    if len(rest) > 1 and epithet_re.fullmatch(rest[1]):
+        name.append(rest[1])                 # species epithet
+        i = 2
+        while i < len(rest):                 # optional infraspecific epithet(s)
+            t = rest[i]
+            if epithet_re.fullmatch(t) and t not in PARTICLES:
+                name.append(t)
+                i += 1
+            else:
+                break
     latin = " ".join(name).strip()
+
     auth_part = " ".join(rest[i:]).strip()
     year = None
     ym = re.findall(r"\b(\d{4})\b", auth_part)
@@ -96,6 +119,9 @@ def parse_species(label):
     authors = auth_part.strip("()")
     authors = re.sub(r",?\s*\d{4}\s*\)?\s*$", "", authors).strip().strip("(),")
     authors = authors or None
+
+    before = clean_zh(" ".join(toks[:gi]))
+    chinese = before if cjk_re.search(before) else ""
     return latin, chinese, authors, year, tw, cn
 
 
